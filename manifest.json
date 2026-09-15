@@ -43,38 +43,8 @@
       "tagline": "The statistics engine behind hypothesis tests and business experiments"
     }
   ],
+
   "scripts": [
-    "libraries/numpy/01-array-basics.js",
-    "libraries/numpy/02-indexing-slicing.js",
-    "libraries/numpy/03-vectorized-math.js",
-    "libraries/numpy/04-statistical-functions.js",
-    "libraries/numpy/05-reshape-aggregate.js",
-    "libraries/pandas/01-series-dataframe-basics.js",
-    "libraries/pandas/02-reading-csv.js",
-    "libraries/pandas/03-selection-filtering.js",
-    "libraries/pandas/04-groupby-aggregation.js",
-    "libraries/pandas/05-missing-data.js",
-    "libraries/pandas/06-merging-joining.js",
-    "libraries/matplotlib/01-line-chart.js",
-    "libraries/matplotlib/02-bar-chart.js",
-    "libraries/matplotlib/03-scatter-plot.js",
-    "libraries/matplotlib/04-histogram.js",
-    "libraries/matplotlib/05-subplots-dashboard.js",
-    "libraries/seaborn/01-distribution-plot.js",
-    "libraries/seaborn/02-box-plot.js",
-    "libraries/seaborn/03-correlation-heatmap.js",
-    "libraries/seaborn/04-pairplot.js",
-    "libraries/seaborn/05-regression-plot.js",
-    "libraries/scikit-learn/01-train-test-split.js",
-    "libraries/scikit-learn/02-linear-regression.js",
-    "libraries/scikit-learn/03-logistic-regression.js",
-    "libraries/scikit-learn/04-decision-tree.js",
-    "libraries/scikit-learn/05-kmeans-clustering.js",
-    "libraries/scikit-learn/06-model-evaluation.js",
-    "libraries/scipy/01-descriptive-stats.js",
-    "libraries/scipy/02-t-test.js",
-    "libraries/scipy/03-correlation-significance.js",
-    "libraries/scipy/04-anova.js",
-    "libraries/scipy/05-optimization.js"
+    "numpy/01-array-basics.js"
   ]
 }

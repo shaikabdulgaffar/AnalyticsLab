@@ -1,9 +1,3 @@
-/* =========================================================================
-   Analytics Lab — app.js
-   Loaded BEFORE the individual topic files. Each topic file calls
-   registerTopic({...}) which simply pushes into window.TOPICS.
-   ========================================================================= */
-
 window.TOPICS = [];
 
 function registerTopic(topic) {
@@ -31,6 +25,7 @@ const LIBRARY_META = [
 let coveredSet = new Set(safeParse(localStorage.getItem("analyticsLab.covered")) || []);
 let expandedLibs = new Set(LIBRARY_META.map(l => l.folder)); // all open by default
 let activeTopicId = null;
+let activeVisualCleanup = null; // teardown for the currently mounted topic.visual, if any
 
 function safeParse(json) {
   try { return JSON.parse(json); } catch (e) { return null; }
@@ -43,7 +38,7 @@ function persistCovered() {
 /* ---- boot --------------------------------------------------------------*/
 function initApp() {
   applyTheme(localStorage.getItem("analyticsLab.theme") || "dark");
-  applyPresentationMode(localStorage.getItem("analyticsLab.present") === "true");
+  applySidebarCollapsed(localStorage.getItem("analyticsLab.sidebarCollapsed") === "true");
 
   renderSidebar();
   updateProgress();
@@ -59,12 +54,14 @@ function initApp() {
     localStorage.setItem("analyticsLab.theme", next);
   });
 
-  document.getElementById("presentToggle").addEventListener("click", () => {
-    const next = !document.body.classList.contains("presentation-mode");
-    applyPresentationMode(next);
-    localStorage.setItem("analyticsLab.present", String(next));
+  // Desktop: collapses the sidebar in place (lives inside the sidebar header).
+  document.getElementById("sidebarToggle").addEventListener("click", () => {
+    const next = !document.getElementById("appShell").classList.contains("sidebar-collapsed");
+    applySidebarCollapsed(next);
+    localStorage.setItem("analyticsLab.sidebarCollapsed", String(next));
   });
 
+  // Mobile: opens/closes the off-canvas drawer.
   document.getElementById("menuToggle").addEventListener("click", () => {
     document.getElementById("appShell").classList.toggle("sidebar-open");
   });
@@ -77,18 +74,18 @@ function closeMobileSidebar() {
   document.getElementById("appShell").classList.remove("sidebar-open");
 }
 
-/* ---- theme / presentation --------------------------------------------- */
+function applySidebarCollapsed(on) {
+  document.getElementById("appShell").classList.toggle("sidebar-collapsed", on);
+  document.getElementById("sidebarToggle").title = on ? "Expand sidebar" : "Collapse sidebar";
+}
+
+/* ---- theme -------------------------------------------------------------*/
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   const btn = document.getElementById("themeToggle");
   btn.innerHTML = theme === "dark"
     ? '<i class="fa-solid fa-sun"></i>'
     : '<i class="fa-solid fa-moon"></i>';
-}
-
-function applyPresentationMode(on) {
-  document.body.classList.toggle("presentation-mode", on);
-  document.getElementById("presentToggle").classList.toggle("active", on);
 }
 
 /* ---- sidebar ------------------------------------------------------------
@@ -158,7 +155,6 @@ function renderSidebar(filterText = "") {
 function renderWelcome() {
   const libCount = LIBRARY_META.length;
   const topicCount = window.TOPICS.length;
-  document.getElementById("breadcrumb").innerHTML = `<i class="fa-solid fa-house"></i><span>Home</span>`;
   document.getElementById("contentArea").innerHTML = `
     <div class="welcome fade-in">
       <i class="fa-solid fa-diagram-project welcome-icon"></i>
@@ -184,13 +180,6 @@ function selectTopic(topic) {
   const libMeta = LIBRARY_META.find((l) => l.folder === topic.library);
   const covered = coveredSet.has(activeTopicId);
 
-  document.getElementById("breadcrumb").innerHTML = `
-    <i class="${libMeta.icon}" style="color:${libMeta.color}"></i>
-    <span>${libMeta.name}</span>
-    <i class="fa-solid fa-chevron-right breadcrumb-sep"></i>
-    <span>${topic.title}</span>
-  `;
-
   document.getElementById("contentArea").innerHTML = `
     <div class="topic-card fade-in" style="--accent:${libMeta.color}">
       <div class="topic-card-head">
@@ -204,6 +193,8 @@ function selectTopic(topic) {
           <span>${covered ? "Covered in class" : "Mark as covered"}</span>
         </button>
       </div>
+
+      ${topic.visual ? `<div class="visual-panel" id="visualPanel"></div>` : ""}
 
       <div class="code-panel">
         <div class="code-panel-header">
@@ -226,6 +217,20 @@ function selectTopic(topic) {
 
   document.getElementById("copyBtn").addEventListener("click", () => copyCode(topic.code));
   document.getElementById("coverBtn").addEventListener("click", () => toggleCovered(topic));
+
+  // Visual topics: stop any previous animation's interval/listeners, then
+  // mount this topic's animation into its own panel. topic.visual is a
+  // function that receives the mount element and returns an optional
+  // cleanup function (e.g. clearInterval), which we run on the next
+  // navigation so switching topics never leaves a stray timer running.
+  if (activeVisualCleanup) {
+    activeVisualCleanup();
+    activeVisualCleanup = null;
+  }
+  if (topic.visual) {
+    const panel = document.getElementById("visualPanel");
+    activeVisualCleanup = topic.visual(panel) || null;
+  }
 }
 
 /* ---- copy to clipboard (with fallback for non-secure / file:// contexts) */
