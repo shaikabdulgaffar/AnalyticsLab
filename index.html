@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Analytics Lab — Data Science Library Simulator</title>
+<meta name="description" content="A classroom simulator for teaching NumPy, Pandas, Matplotlib, Seaborn, Scikit-learn and SciPy to Business Analytics students." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell" id="appShell">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <span class="brand-icon"><i class="fa-solid fa-flask-vial"></i></span>
+        <div class="brand-text">
+          <p class="brand-title">Analytics Lab</p>
+          <p class="brand-subtitle">Business Analytics Simulator</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="searchInput" placeholder="Search a topic…" autocomplete="off" />
+    </div>
+
+    <nav id="libraryNav" class="library-nav" aria-label="Library topics"></nav>
+
+    <div class="sidebar-footer">
+      <div class="progress-row">
+        <span class="progress-label" id="progressLabel">0 / 0 covered</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <main class="main-panel">
+    <header class="topbar">
+      <button class="icon-btn menu-toggle" id="menuToggle" title="Show topics">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <div class="breadcrumb" id="breadcrumb">
+        <i class="fa-solid fa-house"></i>
+        <span>Home</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="presentToggle" title="Presentation mode (larger text for projector)">
+          <i class="fa-solid fa-display"></i>
+        </button>
+        <button class="icon-btn" id="themeToggle" title="Toggle light / dark">
+          <i class="fa-solid fa-sun"></i>
+        </button>
+      </div>
+    </header>
+
+    <section id="contentArea" class="content-area"></section>
+  </main>
+
+</div>
+
+<!-- app.js defines registerTopic() and must load before the topic data files below -->
+<script src="js/app.js"></script>
+
+<!-- NumPy -->
+<script src="libraries/numpy/01-array-basics.js"></script>
+<script src="libraries/numpy/02-indexing-slicing.js"></script>
+<script src="libraries/numpy/03-vectorized-math.js"></script>
+<script src="libraries/numpy/04-statistical-functions.js"></script>
+<script src="libraries/numpy/05-reshape-aggregate.js"></script>
+
+<!-- Pandas -->
+<script src="libraries/pandas/01-series-dataframe-basics.js"></script>
+<script src="libraries/pandas/02-reading-csv.js"></script>
+<script src="libraries/pandas/03-selection-filtering.js"></script>
+<script src="libraries/pandas/04-groupby-aggregation.js"></script>
+<script src="libraries/pandas/05-missing-data.js"></script>
+<script src="libraries/pandas/06-merging-joining.js"></script>
+
+<!-- Matplotlib -->
+<script src="libraries/matplotlib/01-line-chart.js"></script>
+<script src="libraries/matplotlib/02-bar-chart.js"></script>
+<script src="libraries/matplotlib/03-scatter-plot.js"></script>
+<script src="libraries/matplotlib/04-histogram.js"></script>
+<script src="libraries/matplotlib/05-subplots-dashboard.js"></script>
+
+<!-- Seaborn -->
+<script src="libraries/seaborn/01-distribution-plot.js"></script>
+<script src="libraries/seaborn/02-box-plot.js"></script>
+<script src="libraries/seaborn/03-correlation-heatmap.js"></script>
+<script src="libraries/seaborn/04-pairplot.js"></script>
+<script src="libraries/seaborn/05-regression-plot.js"></script>
+
+<!-- Scikit-learn -->
+<script src="libraries/scikit-learn/01-train-test-split.js"></script>
+<script src="libraries/scikit-learn/02-linear-regression.js"></script>
+<script src="libraries/scikit-learn/03-logistic-regression.js"></script>
+<script src="libraries/scikit-learn/04-decision-tree.js"></script>
+<script src="libraries/scikit-learn/05-kmeans-clustering.js"></script>
+<script src="libraries/scikit-learn/06-model-evaluation.js"></script>
+
+<!-- SciPy -->
+<script src="libraries/scipy/01-descriptive-stats.js"></script>
+<script src="libraries/scipy/02-t-test.js"></script>
+<script src="libraries/scipy/03-correlation-significance.js"></script>
+<script src="libraries/scipy/04-anova.js"></script>
+<script src="libraries/scipy/05-optimization.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>

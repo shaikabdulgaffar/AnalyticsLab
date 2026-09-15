@@ -1,0 +1,80 @@
+{
+  "libraries": [
+    {
+      "folder": "numpy",
+      "name": "NumPy",
+      "icon": "fa-solid fa-calculator",
+      "color": "#4C8BF5",
+      "tagline": "Fast numeric arrays for every calculation underneath pandas & sklearn"
+    },
+    {
+      "folder": "pandas",
+      "name": "Pandas",
+      "icon": "fa-solid fa-table",
+      "color": "#2FBF9B",
+      "tagline": "The spreadsheet-like workhorse for cleaning and exploring business data"
+    },
+    {
+      "folder": "matplotlib",
+      "name": "Matplotlib",
+      "icon": "fa-solid fa-chart-line",
+      "color": "#F5A623",
+      "tagline": "The foundation layer for every chart students will build on top of"
+    },
+    {
+      "folder": "seaborn",
+      "name": "Seaborn",
+      "icon": "fa-solid fa-chart-simple",
+      "color": "#E0559F",
+      "tagline": "Statistical, presentation-ready charts with far less code than raw Matplotlib"
+    },
+    {
+      "folder": "scikit-learn",
+      "name": "Scikit-learn",
+      "icon": "fa-solid fa-brain",
+      "color": "#9B6CF5",
+      "tagline": "Turn cleaned business data into predictions, classifications and clusters"
+    },
+    {
+      "folder": "scipy",
+      "name": "SciPy",
+      "icon": "fa-solid fa-flask",
+      "color": "#56C9E0",
+      "tagline": "The statistics engine behind hypothesis tests and business experiments"
+    }
+  ],
+  "scripts": [
+    "libraries/numpy/01-array-basics.js",
+    "libraries/numpy/02-indexing-slicing.js",
+    "libraries/numpy/03-vectorized-math.js",
+    "libraries/numpy/04-statistical-functions.js",
+    "libraries/numpy/05-reshape-aggregate.js",
+    "libraries/pandas/01-series-dataframe-basics.js",
+    "libraries/pandas/02-reading-csv.js",
+    "libraries/pandas/03-selection-filtering.js",
+    "libraries/pandas/04-groupby-aggregation.js",
+    "libraries/pandas/05-missing-data.js",
+    "libraries/pandas/06-merging-joining.js",
+    "libraries/matplotlib/01-line-chart.js",
+    "libraries/matplotlib/02-bar-chart.js",
+    "libraries/matplotlib/03-scatter-plot.js",
+    "libraries/matplotlib/04-histogram.js",
+    "libraries/matplotlib/05-subplots-dashboard.js",
+    "libraries/seaborn/01-distribution-plot.js",
+    "libraries/seaborn/02-box-plot.js",
+    "libraries/seaborn/03-correlation-heatmap.js",
+    "libraries/seaborn/04-pairplot.js",
+    "libraries/seaborn/05-regression-plot.js",
+    "libraries/scikit-learn/01-train-test-split.js",
+    "libraries/scikit-learn/02-linear-regression.js",
+    "libraries/scikit-learn/03-logistic-regression.js",
+    "libraries/scikit-learn/04-decision-tree.js",
+    "libraries/scikit-learn/05-kmeans-clustering.js",
+    "libraries/scikit-learn/06-model-evaluation.js",
+    "libraries/scipy/01-descriptive-stats.js",
+    "libraries/scipy/02-t-test.js",
+    "libraries/scipy/03-correlation-significance.js",
+    "libraries/scipy/04-anova.js",
+    "libraries/scipy/05-optimization.js"
+  ]
+}
