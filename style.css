@@ -1,5 +1,5 @@
 /* =========================================================================
-   Analytics Lab — style.css
+   Data Science Lectures — style.css
    Design intent: a clean, code-editor-inspired console rather than a
    marketing page. Each library carries its own accent color (encoding
    information, not decoration). Single light theme throughout — including
@@ -311,19 +311,21 @@ a { color: inherit; }
 
 /* ---- welcome state --------------------------------------------------- */
 .welcome {
-  max-width: 560px;
-  margin: 6vh auto 0;
-  text-align: left;
+  max-width: 1000px;
+  margin: 0 auto;
+  text-align: center;
+  /* Centre the picture + line in the visible area (100px = content padding). */
+  min-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
-.welcome-icon {
-  font-size: 30px;
-  color: var(--accent);
-  margin-bottom: 18px;
-}
+@supports (height: 100dvh) { .welcome { min-height: calc(100dvh - 100px); } }
 .welcome h1 {
   font-size: 30px;
   line-height: 1.25;
-  margin: 0 0 12px;
+  margin: 0;
   font-weight: 600;
   letter-spacing: -0.3px;
 }
@@ -331,12 +333,133 @@ a { color: inherit; }
   color: var(--text-muted);
   font-size: 15px;
   max-width: 46ch;
-  margin: 0 0 28px;
+  margin: 0 auto;
 }
-.welcome-stats { display: flex; gap: 32px; }
-.welcome-stats div { display: flex; flex-direction: column; }
-.welcome-stats strong { font-size: 24px; font-family: "Space Grotesk", sans-serif; }
-.welcome-stats span { font-size: 12.5px; color: var(--text-faint); }
+
+/* ---- welcome orbit: Python in the middle, libraries circling it ----------
+   Everything is sized from --size, so the whole picture scales as one unit.
+   .orbit spins slowly; each badge spins the opposite way at the same speed,
+   so the logos travel around the circle but always stay upright. Hover
+   pauses it (handy when talking about one library). */
+.orbit-stage {
+  /* Sized from the window HEIGHT so the whole welcome screen (picture + line)
+     is visible at a glance with no scrolling: 290px is reserved for the page
+     padding, the welcome line and the icon names. Max 400px on tall screens. */
+  --size: clamp(200px, calc(100vh - 150px - 45px * var(--text-zoom, 1.2) - 25px), 480px);
+  --spin: 48s;
+  --item: calc(var(--size) * 0.19);  /* library badge diameter */
+  --r: calc(var(--size) * 0.38);     /* orbit radius */
+  --core: calc(var(--size) * 0.31);  /* Python badge diameter */
+  position: relative;
+  width: var(--size);
+  height: var(--size);
+  margin: 0 auto 24px;
+  zoom: 1; /* text-zoom must not enlarge the picture and push the line off screen */
+}
+.orbit-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--r) * 2);
+  height: calc(var(--r) * 2);
+  transform: translate(-50%, -50%);
+  border: 1.5px dashed var(--border);
+  border-radius: 50%;
+}
+.orbit-ring::after { /* faint inner ring for depth */
+  content: "";
+  position: absolute;
+  inset: 17%;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  opacity: 0.6;
+}
+.orbit {
+  position: absolute;
+  inset: 0;
+  animation: orbit-spin var(--spin) linear infinite;
+}
+.orbit-item {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--item);
+  height: var(--item);
+  margin: calc(var(--item) / -2) 0 0 calc(var(--item) / -2);
+  transform: rotate(var(--a)) translateX(var(--r)) rotate(calc(var(--a) * -1));
+}
+/* Counter-rotates against .orbit so the icon and its name never tip over. */
+.orbit-upright {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  animation: orbit-spin-reverse var(--spin) linear infinite;
+}
+.orbit-badge,
+.orbit-core {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  box-shadow: 0 4px 14px rgba(20, 24, 33, 0.10);
+}
+.orbit-badge {
+  width: 100%;
+  height: 100%;
+  color: var(--c);
+  font-size: calc(var(--item) * 0.42);
+}
+.orbit-label {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.orbit-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--core);
+  height: var(--core);
+  transform: translate(-50%, -50%);
+  color: #3776ab; /* Python blue */
+  font-size: calc(var(--core) * 0.5);
+  box-shadow: 0 6px 22px rgba(20, 24, 33, 0.14);
+  animation: core-pulse 4s ease-in-out infinite;
+}
+.orbit-stage:hover .orbit,
+.orbit-stage:hover .orbit-upright { animation-play-state: paused; }
+
+@keyframes orbit-spin         { to { transform: rotate(360deg); } }
+@keyframes orbit-spin-reverse { to { transform: rotate(-360deg); } }
+@keyframes core-pulse {
+  0%, 100% { box-shadow: 0 6px 22px rgba(20, 24, 33, 0.14), 0 0 0 0 rgba(63, 111, 214, 0.18); }
+  50%      { box-shadow: 0 6px 22px rgba(20, 24, 33, 0.14), 0 0 0 16px rgba(63, 111, 214, 0); }
+}
+@supports (height: 100dvh) {
+  .orbit-stage { --size: clamp(200px, calc(100dvh - 150px - 45px * var(--text-zoom, 1.2) - 25px), 480px); } /* mobile browsers: ignore the address bar */
+}
+@media (max-width: 900px) {
+  .orbit-stage { --size: clamp(200px, calc(100vh - 290px), 400px); }
+  @supports (height: 100dvh) {
+    .orbit-stage { --size: clamp(200px, calc(100dvh - 290px), 400px); }
+  }
+}
+@media (max-width: 600px) {
+  .orbit-stage { --size: clamp(200px, calc(100vh - 290px), 300px); }
+  @supports (height: 100dvh) {
+    .orbit-stage { --size: clamp(200px, calc(100dvh - 290px), 300px); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbit, .orbit-upright, .orbit-core { animation: none; }
+}
 
 /* ---- topic card ---------------------------------------------------------*/
 .topic-card { max-width: 920px; margin: 0 auto; }

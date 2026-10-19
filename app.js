@@ -80,6 +80,7 @@ function initApp() {
   updateProgress();
   renderWelcome();
   buildDock();
+  initFullscreen();
   applyTextZoom();
   initImageTools();
   initInk();
@@ -187,20 +188,32 @@ function renderSidebar(filterText = "") {
   });
 }
 
-/* ---- welcome / empty state --------------------------------------------- */
+/* ---- welcome / empty state ----------------------------------------------
+   Python sits in the middle and the data-science libraries orbit around it.
+   The orbiting icons, names and colours come straight from LIBRARY_META at the
+   top of this file, so the welcome screen always matches the sidebar - add or
+   remove a library there and the circle re-spaces itself automatically. */
 function renderWelcome() {
-  const libCount = LIBRARY_META.length;
-  const topicCount = window.TOPICS.length;
+  const n = LIBRARY_META.length;
+  const items = LIBRARY_META.map((lib, i) => {
+    const angle = -90 + (360 / n) * i; // first library at the top, then clockwise
+    return `
+      <div class="orbit-item" style="--a:${angle}deg; --c:${lib.color}" title="${lib.name}">
+        <div class="orbit-upright">
+          <span class="orbit-badge"><i class="${lib.icon}"></i></span>
+          <span class="orbit-label">${lib.name}</span>
+        </div>
+      </div>`;
+  }).join("");
+
   document.getElementById("contentArea").innerHTML = `
     <div class="welcome fade-in">
-      <i class="fa-solid fa-diagram-project welcome-icon"></i>
-      <h1>Pick a topic to run the simulation</h1>
-      <p>Expand a library on the left and choose a concept — the code appears here,
-         ready to talk through and copy straight into your compiler.</p>
-      <div class="welcome-stats">
-        <div><strong>${libCount}</strong><span>libraries</span></div>
-        <div><strong>${topicCount}</strong><span>ready simulations</span></div>
+      <div class="orbit-stage" role="img" aria-label="Python surrounded by the data science libraries: ${LIBRARY_META.map((l) => l.name).join(", ")}">
+        <span class="orbit-ring"></span>
+        <div class="orbit">${items}</div>
+        <div class="orbit-core"><i class="fa-brands fa-python"></i></div>
       </div>
+      <h1>Welcome! Let’s turn data into decisions.</h1>
     </div>
   `;
 }
@@ -213,8 +226,8 @@ function orderedTopics() {
   return LIBRARY_META.flatMap((lib) => window.TOPICS.filter((t) => t.library === lib.folder));
 }
 
-/* Right-side dock (Previous / Next). Before any topic is open, Next starts at
-   the first topic. */
+/* Right-side dock (Previous / Mark as covered / Next). Before any topic is
+   open, Next starts at the first topic. */
 function currentTopicIndex() {
   return orderedTopics().findIndex((t) => t.library + "::" + t.id === activeTopicId);
 }
@@ -228,13 +241,17 @@ function updateNavDock() {
   prev.disabled = i <= 0;
   next.disabled = total === 0 || i >= total - 1;
 
+  const home = document.getElementById("navHome");
+  if (home) home.disabled = i === -1; // already on the welcome screen
+
   const cover = document.getElementById("navCover");
   if (cover) {
     const on = coveredSet.has(activeTopicId);
     cover.disabled = i === -1;
     cover.classList.toggle("is-covered", on);
     cover.setAttribute("aria-pressed", String(on));
-    cover.title = cover.ariaLabel = on ? "Covered in class (tap to undo)" : "Mark as covered";
+    cover.title = on ? "Covered in class (tap to undo)" : "Mark as covered";
+    cover.setAttribute("aria-label", cover.title);
     cover.querySelector("i").className = "fa-solid " + (on ? "fa-circle-check" : "fa-circle");
   }
 }
@@ -246,6 +263,22 @@ function stepTopic(delta) {
   goToTopic(target);
 }
 
+/* Home: back to the welcome screen. Stops any running topic animation and
+   clears the active highlight in the sidebar. */
+function goHome() {
+  if (activeVisualCleanup) {
+    activeVisualCleanup();
+    activeVisualCleanup = null;
+  }
+  activeTopicId = null;
+  document.querySelectorAll(".topic-item.active").forEach((b) => b.classList.remove("active"));
+  renderWelcome();
+  document.getElementById("contentArea").scrollTop = 0;
+  updateNavDock();
+  updateInkUI();
+  redrawInk();
+}
+
 function goToTopic(topic) {
   if (!topic) return;
   expandedLibs.add(topic.library); // make sure the target is visible in the sidebar
@@ -253,7 +286,7 @@ function goToTopic(topic) {
   selectTopic(topic);
   document.getElementById("contentArea").scrollTop = 0;
   const activeItem = document.querySelector(".topic-item.active");
-  if (activeItem) activeItem.scrollIntoView({ block: "nearest" });
+  if (activeItem && activeItem.scrollIntoView) activeItem.scrollIntoView({ block: "nearest" });
 }
 
 /* ---- topic detail -------------------------------------------------------*/
@@ -461,6 +494,66 @@ function initImageTools() {
   document.addEventListener("pointercancel", endDrag);
 }
 
+/* ---- full screen toggle (tool dock, below zoom out) -----------------------
+   Uses the standard Fullscreen API plus the older prefixed versions, so it
+   works in Chrome, Edge, Firefox, Safari (macOS + iPadOS), Opera and older
+   Edge/IE11. Where a browser has no element-fullscreen support at all (for
+   example iPhone Safari) the button is hidden instead of doing nothing.
+   Esc / the browser's own exit also flips the icon back, because the state is
+   read from the browser on every fullscreenchange event. */
+function fsElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement ||
+         document.mozFullScreenElement || document.msFullscreenElement || null;
+}
+
+function fsSupported() {
+  const el = document.documentElement;
+  const hasRequest = !!(el.requestFullscreen || el.webkitRequestFullscreen ||
+                        el.mozRequestFullScreen || el.msRequestFullscreen);
+  const enabled = document.fullscreenEnabled !== false && document.webkitFullscreenEnabled !== false &&
+                  document.mozFullScreenEnabled !== false && document.msFullscreenEnabled !== false;
+  return hasRequest && enabled;
+}
+
+function fsToggle() {
+  const el = document.documentElement;
+  let result;
+  try {
+    if (fsElement()) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen ||
+                   document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if (exit) result = exit.call(document);
+    } else {
+      const enter = el.requestFullscreen || el.webkitRequestFullscreen ||
+                    el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (enter) result = enter.call(el);
+    }
+  } catch (err) { /* browser refused (e.g. not a user gesture) - nothing to do */ }
+  // Modern browsers return a promise that rejects on refusal; old ones return nothing.
+  if (result && typeof result.catch === "function") result.catch(() => {});
+}
+
+function updateFsButton() {
+  const btn = document.getElementById("fsToggle");
+  if (!btn) return;
+  const on = !!fsElement();
+  btn.title = on ? "Exit full screen" : "Full screen";
+  btn.setAttribute("aria-label", on ? "Exit full screen" : "Enter full screen");
+  btn.setAttribute("aria-pressed", String(on));
+  btn.classList.toggle("active", on);
+  btn.querySelector("i").className = "fa-solid " + (on ? "fa-compress" : "fa-expand");
+}
+
+function initFullscreen() {
+  const btn = document.getElementById("fsToggle");
+  if (!btn) return;
+  if (!fsSupported()) { btn.hidden = true; btn.style.display = "none"; return; }
+  btn.addEventListener("click", fsToggle);
+  ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"]
+    .forEach((evt) => document.addEventListener(evt, updateFsButton));
+  updateFsButton();
+}
+
 /* ---- tool dock: pen + text zoom ------------------------------------------
    A small column of buttons at the bottom-left corner of the main panel, i.e.
    directly outside the sidebar's edge. Because it lives INSIDE .main-panel it
@@ -476,6 +569,7 @@ function buildDock() {
       <button class="icon-btn" type="button" data-ink-toggle title="Pen: write or draw on the screen" aria-label="Pen: write or draw on the screen" aria-pressed="false"><i class="fa-solid fa-pen"></i></button>
       <button class="icon-btn" type="button" data-zoom="in" title="Zoom in text" aria-label="Zoom in text"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
       <button class="icon-btn" type="button" data-zoom="out" title="Zoom out text" aria-label="Zoom out text"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+      <button class="icon-btn" type="button" id="fsToggle" title="Full screen" aria-label="Enter full screen" aria-pressed="false"><i class="fa-solid fa-expand"></i></button>
     </div>`;
   document.querySelector(".main-panel").appendChild(dock);
 
@@ -485,10 +579,12 @@ function buildDock() {
   nav.setAttribute("role", "group");
   nav.setAttribute("aria-label", "Topic navigation");
   nav.innerHTML = `
+    <button class="nav-dock-btn" type="button" id="navHome" title="Home" aria-label="Home"><i class="fa-solid fa-house"></i></button>
     <button class="nav-dock-btn" type="button" id="navPrev" title="Previous topic" aria-label="Previous topic"><i class="fa-solid fa-arrow-left"></i></button>
     <button class="nav-dock-btn nav-dock-cover" type="button" id="navCover" title="Mark as covered" aria-label="Mark as covered" aria-pressed="false"><i class="fa-solid fa-circle"></i></button>
     <button class="nav-dock-btn" type="button" id="navNext" title="Next topic" aria-label="Next topic"><i class="fa-solid fa-arrow-right"></i></button>`;
   document.querySelector(".main-panel").appendChild(nav);
+  document.getElementById("navHome").addEventListener("click", goHome);
   document.getElementById("navPrev").addEventListener("click", () => stepTopic(-1));
   document.getElementById("navNext").addEventListener("click", () => stepTopic(1));
   document.getElementById("navCover").addEventListener("click", () => {
@@ -794,7 +890,7 @@ function bootstrap() {
   // Console hint if a library file is missing, empty, or uses a wrong library id.
   LIBRARY_META.forEach((lib) => {
     if (!window.TOPICS.some((t) => t.library === lib.folder)) {
-      console.warn("Analytics Lab: no topics registered for '" + lib.folder + "' - check its <script> tag in index.html");
+      console.warn("Data Science Lectures: no topics registered for '" + lib.folder + "' - check its <script> tag in index.html");
     }
   });
   initApp();
