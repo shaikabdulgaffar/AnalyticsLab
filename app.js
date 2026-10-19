@@ -112,14 +112,39 @@ function initApp() {
     localStorage.setItem("analyticsLab.sidebarCollapsed", String(next));
   });
 
-  // Mobile: tapping the backdrop closes the off-canvas drawer.
-  document.getElementById("sidebarBackdrop").addEventListener("click", () => {
-    document.getElementById("appShell").classList.remove("sidebar-open");
+  // Mobile: hamburger opens the off-canvas drawer; backdrop, X button and Esc close it.
+  document.getElementById("menuToggle").addEventListener("click", openMobileSidebar);
+  document.getElementById("sidebarClose").addEventListener("click", () => closeMobileSidebar(true));
+  document.getElementById("sidebarBackdrop").addEventListener("click", () => closeMobileSidebar());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.getElementById("appShell").classList.contains("sidebar-open")) {
+      closeMobileSidebar(true);
+    }
   });
+  // Rotating / resizing to a desktop width: make sure no drawer state is left behind.
+  const desktopMQ = window.matchMedia("(min-width: 901px)");
+  const onBreakpoint = (e) => { if (e.matches) closeMobileSidebar(); };
+  if (desktopMQ.addEventListener) desktopMQ.addEventListener("change", onBreakpoint);
+  else if (desktopMQ.addListener) desktopMQ.addListener(onBreakpoint); // older Safari
 }
 
-function closeMobileSidebar() {
+function openMobileSidebar() {
+  document.getElementById("appShell").classList.add("sidebar-open");
+  document.getElementById("menuToggle").setAttribute("aria-expanded", "true");
+  document.getElementById("sidebarClose").focus({ preventScroll: true });
+}
+
+function closeMobileSidebar(returnFocus = false) {
   document.getElementById("appShell").classList.remove("sidebar-open");
+  const menuBtn = document.getElementById("menuToggle");
+  menuBtn.setAttribute("aria-expanded", "false");
+  if (returnFocus === true) menuBtn.focus({ preventScroll: true });
+}
+
+/* Title shown in the mobile top bar: the open topic, or the app name on the welcome screen. */
+function setMobileTitle(text) {
+  const el = document.getElementById("mobileTitle");
+  if (el) el.textContent = text || "Data Science Libraries";
 }
 
 function applySidebarCollapsed(on) {
@@ -275,6 +300,7 @@ function goHome() {
     activeVisualCleanup = null;
   }
   activeTopicId = null;
+  setMobileTitle("");
   document.querySelectorAll(".topic-item.active").forEach((b) => b.classList.remove("active"));
   renderWelcome();
   document.getElementById("contentArea").scrollTop = 0;
@@ -296,6 +322,7 @@ function goToTopic(topic) {
 /* ---- topic detail -------------------------------------------------------*/
 function selectTopic(topic) {
   activeTopicId = topic.library + "::" + topic.id;
+  setMobileTitle(topic.title);
 
   document.querySelectorAll(".topic-item").forEach((b) => {
     b.classList.toggle("active", b.dataset.topicId === activeTopicId);

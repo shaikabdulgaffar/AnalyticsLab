@@ -36,6 +36,7 @@ body {
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
 }
 
 h1, h2, h3, .brand-title, .lib-name, .pill, .cover-btn, .copy-btn, .progress-label {
@@ -60,6 +61,7 @@ a { color: inherit; }
   height: 100vh;
   overflow: hidden;
 }
+@supports (height: 100dvh) { .app-shell { height: 100dvh; } } /* mobile: ignore the collapsing address bar */
 
 /* ---- sidebar ------------------------------------------------------------*/
 .sidebar {
@@ -86,6 +88,7 @@ a { color: inherit; }
 .sidebar-toggle {
   flex-shrink: 0;
 }
+.sidebar .sidebar-close { display: none; flex-shrink: 0; } /* shown only in the mobile drawer */
 .sidebar-toggle-icon {
   display: block;
   width: 18px;
@@ -254,6 +257,7 @@ a { color: inherit; }
 
 /* ---- mobile drawer ------------------------------------------------------*/
 .sidebar-backdrop { display: none; }
+.mobile-topbar { display: none; } /* shown only on small screens, see the responsive block at the end */
 
 /* ---- main panel ---------------------------------------------------------*/
 .main-panel {
@@ -432,15 +436,17 @@ a { color: inherit; }
   .orbit-stage { --size: clamp(200px, calc(100dvh - 150px - 45px * var(--text-zoom, 1.2) - 25px), 480px); } /* mobile browsers: ignore the address bar */
 }
 @media (max-width: 900px) {
-  .orbit-stage { --size: clamp(200px, calc(100vh - 290px), 400px); }
+  /* 330px reserved: top bar + page padding + welcome line + labels. Also capped by the
+     screen WIDTH so the orbit labels never get clipped on narrow phones. */
+  .orbit-stage { --size: clamp(200px, min(calc(100vh - 330px), calc(100vw - 100px)), 400px); }
   @supports (height: 100dvh) {
-    .orbit-stage { --size: clamp(200px, calc(100dvh - 290px), 400px); }
+    .orbit-stage { --size: clamp(200px, min(calc(100dvh - 330px), calc(100vw - 100px)), 400px); }
   }
 }
 @media (max-width: 600px) {
-  .orbit-stage { --size: clamp(200px, calc(100vh - 290px), 300px); }
+  .orbit-stage { --size: clamp(200px, min(calc(100vh - 330px), calc(100vw - 100px)), 300px); }
   @supports (height: 100dvh) {
-    .orbit-stage { --size: clamp(200px, calc(100dvh - 290px), 300px); }
+    .orbit-stage { --size: clamp(200px, min(calc(100dvh - 330px), calc(100vw - 100px)), 300px); }
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1033,7 +1039,7 @@ body.lightbox-open { overflow: hidden; }
 
   /* The desktop collapse-to-rail behavior is irrelevant once the sidebar is
      an off-canvas drawer — always show full contents when it's open. */
-  .app-shell.sidebar-collapsed .sidebar { width: 300px; }
+  .app-shell.sidebar-collapsed .sidebar { width: min(300px, 86vw); }
   .app-shell.sidebar-collapsed .sidebar-header-row { justify-content: space-between; }
   .app-shell.sidebar-collapsed .brand,
   .app-shell.sidebar-collapsed .search-box,
@@ -1052,14 +1058,58 @@ body.lightbox-open { overflow: hidden; }
     pointer-events: auto;
   }
 
+  /* The desktop rail uses fixed 300px inner widths; on a phone they would overflow. */
+  .sidebar > .sidebar-header,
+  .sidebar > .library-nav,
+  .sidebar > .sidebar-footer,
+  .sidebar > .search-box { min-width: 0; }
+
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
+    width: min(300px, 86vw);
     transform: translateX(-100%);
-    transition: transform 0.22s ease;
-    box-shadow: var(--shadow-soft);
+    visibility: hidden;          /* closed drawer: out of tab order / screen readers */
+    box-shadow: none;            /* otherwise the shadow leaks onto the left edge while closed */
+    transition: transform 0.22s ease, visibility 0s linear 0.22s, box-shadow 0.22s ease;
   }
-  .app-shell.sidebar-open .sidebar { transform: translateX(0); }
+  @supports (height: 100dvh) { .sidebar { height: 100dvh; } }
+  .app-shell.sidebar-open .sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.22s ease, visibility 0s, box-shadow 0.22s ease;
+  }
+  .sidebar .sidebar-close { display: flex; }
+  .library-nav { overscroll-behavior: contain; }
+
+  /* Touch-friendly rows + 16px input (iOS Safari zooms the page on focus if it is smaller). */
+  .search-box input { font-size: 16px; }
+  .lib-header { padding: 12px 10px; }
+  .topic-item { padding-top: 11px; padding-bottom: 11px; }
+
+  /* Top bar with the hamburger: this is what opens the sidebar on mobile. */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    height: 52px;
+    padding: 0 12px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+  }
+  .mobile-topbar .menu-btn { width: 40px; height: 40px; flex-shrink: 0; font-size: 16px; }
+  .mobile-topbar-title {
+    margin: 0;
+    min-width: 0;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   .sidebar-backdrop {
     display: none;
@@ -1070,7 +1120,26 @@ body.lightbox-open { overflow: hidden; }
   }
   .app-shell.sidebar-open .sidebar-backdrop { display: block; }
 
-  .content-area { padding: 24px 20px 50px; }
+  .content-area { padding: 20px 16px 84px; } /* bottom room so the docks never cover the last lines */
+  .welcome { min-height: calc(100vh - 160px); }
+  @supports (height: 100dvh) { .welcome { min-height: calc(100dvh - 160px); } }
+  .welcome h1 { font-size: 24px; }
+
+  /* Docks: vertical 40px columns covered the text on a phone. Make them compact rows
+     in the bottom corners instead. The pen options open as a row above the pen button. */
+  .tool-dock { left: 8px; bottom: 10px; width: auto; }
+  .dock-buttons { flex-direction: row; }
+  .ink-bar { flex-direction: row; flex-wrap: wrap; max-width: calc(100vw - 16px); }
+  .nav-dock { right: 8px; bottom: 10px; flex-direction: row; }
+  .tool-dock .icon-btn,
+  .ink-btn,
+  .ink-swatch,
+  .nav-dock-btn { width: 38px; height: 38px; }
+
+  .visual-panel { padding: 18px 14px 16px; }
+  .code-panel pre { padding: 14px 14px 18px; }
+  .code-panel code { font-size: 12.5px; }
+  .topic-footer .hint { flex-basis: 100%; }
   .intro-figure-tools {
     position: static;
     transform: none;
@@ -1080,4 +1149,26 @@ body.lightbox-open { overflow: hidden; }
   }
   .topic-card-head { flex-direction: column; }
   .intro-proscons { grid-template-columns: 1fr; }
+}
+
+/* ---- very small phones (<= 400px) --------------------------------------*/
+@media (max-width: 400px) {
+  .content-area { padding: 16px 12px 84px; }
+  .topic-card-heading h1 { font-size: 21px; }
+  .welcome h1 { font-size: 21px; }
+  /* 4 + 4 dock buttons must fit side by side on a 320px screen */
+  .tool-dock,
+  .nav-dock,
+  .dock-buttons { gap: 4px; }
+  .tool-dock .icon-btn,
+  .ink-btn,
+  .ink-swatch,
+  .nav-dock-btn { width: 34px; height: 34px; font-size: 14px; }
+  .img-lightbox-stage { padding: 56px 10px 16px; }
+}
+
+/* Landscape phones: very little height, so keep the bars slim. */
+@media (max-width: 900px) and (max-height: 500px) {
+  .mobile-topbar { height: 44px; }
+  .mobile-topbar .menu-btn { width: 34px; height: 34px; }
 }
