@@ -7,6 +7,8 @@ function registerTopic(topic) {
 /* Library metadata — order here controls the sidebar order. Keep this in
    sync with the "folder" values used inside libraries/<folder>/*.js files. */
 const LIBRARY_META = [
+  { folder: "python", name: "Python", icon: "fa-brands fa-python", color: "#3776ab",
+    tagline: "The language itself: syntax, data types, control flow, functions and collections" },
   { folder: "numpy", name: "NumPy", icon: "fa-solid fa-calculator", color: "#4C8BF5",
     tagline: "Fast numeric arrays for every calculation underneath pandas & sklearn" },
   { folder: "pandas", name: "Pandas", icon: "fa-solid fa-table", color: "#2FBF9B",
@@ -194,8 +196,10 @@ function renderSidebar(filterText = "") {
    top of this file, so the welcome screen always matches the sidebar - add or
    remove a library there and the circle re-spaces itself automatically. */
 function renderWelcome() {
-  const n = LIBRARY_META.length;
-  const items = LIBRARY_META.map((lib, i) => {
+  // Python already sits in the middle of the picture, so it is not repeated in the circle.
+  const orbitLibs = LIBRARY_META.filter((lib) => lib.folder !== "python");
+  const n = orbitLibs.length;
+  const items = orbitLibs.map((lib, i) => {
     const angle = -90 + (360 / n) * i; // first library at the top, then clockwise
     return `
       <div class="orbit-item" style="--a:${angle}deg; --c:${lib.color}" title="${lib.name}">
@@ -208,7 +212,7 @@ function renderWelcome() {
 
   document.getElementById("contentArea").innerHTML = `
     <div class="welcome fade-in">
-      <div class="orbit-stage" role="img" aria-label="Python surrounded by the data science libraries: ${LIBRARY_META.map((l) => l.name).join(", ")}">
+      <div class="orbit-stage" role="img" aria-label="Python surrounded by the data science libraries: ${orbitLibs.map((l) => l.name).join(", ")}">
         <span class="orbit-ring"></span>
         <div class="orbit">${items}</div>
         <div class="orbit-core"><i class="fa-brands fa-python"></i></div>
