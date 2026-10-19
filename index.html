@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -45,9 +45,6 @@
     <div class="sidebar-footer">
       <div class="progress-row">
         <span class="progress-label" id="progressLabel">0 / 0 covered</span>
-        <button class="icon-btn" id="themeToggle" title="Toggle light / dark">
-          <i class="fa-solid fa-sun"></i>
-        </button>
       </div>
       <div class="progress-track">
         <div class="progress-fill" id="progressFill"></div>
@@ -63,29 +60,15 @@
 
 </div>
 
-<!-- app.js defines registerTopic() and must load before the topic data files below -->
+<!-- Order matters: app.js first (it defines registerTopic), then the library files.
+     Sidebar order is controlled by LIBRARY_META in app.js, not by this order. -->
 <script src="app.js"></script>
+<script src="numpy.js"></script>
+<script src="pandas.js"></script>
+<script src="matplotlib.js"></script>
+<script src="seaborn.js"></script>
+<script src="scikitlearn.js"></script>
+<script src="scipy.js"></script>
 
-<!-- NumPy -->
-<script src="numpy/01-array-basics.js"></script>
-
-<!-- Pandas -->
-<script src="pandas/01-series-dataframe-basics.js"></script>
-
-<!-- Matplotlib -->
-<script src="matplotlib/01-line-chart.js"></script>
-
-<!-- Seaborn -->
-<script src="seaborn/01-distribution-plot.js"></script>
-
-<!-- Scikit-learn -->
-<script src="scikit-learn/01-train-test-split.js"></script>
-
-<!-- SciPy -->
-<script src="scipy/01-descriptive-stats.js"></script>
-
-<script>
-  document.addEventListener('DOMContentLoaded', initApp);
-</script>
 </body>
 </html>

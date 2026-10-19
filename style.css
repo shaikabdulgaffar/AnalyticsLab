@@ -1,31 +1,17 @@
 /* =========================================================================
    Analytics Lab — style.css
-   Design intent: a dark, code-editor-like console rather than a marketing
-   page. Each library carries its own accent color (encoding information,
-   not decoration). Code panels stay dark even in light mode, like a real
-   embedded editor. One deliberate motion moment: the content fade/slide
-   when a topic is opened — everything else stays still.
+   Design intent: a clean, code-editor-inspired console rather than a
+   marketing page. Each library carries its own accent color (encoding
+   information, not decoration). Single light theme throughout — including
+   the code/visual panels, which used to force a dark background even here;
+   that was a bug and has been removed. One deliberate motion moment: the
+   content fade/slide when a topic is opened — everything else stays still.
    ========================================================================= */
 
-:root,
-[data-theme="dark"] {
-  --bg: #12151c;
-  --bg-elevated: #1b2029;
-  --bg-inset: #0e1116;
-  --border: #262c38;
-  --text: #e7e9ee;
-  --text-muted: #8b93a6;
-  --text-faint: #5c6478;
-  --accent: #4c8bf5;
-  --success: #2fbf9b;
-  --danger: #e0559f;
-  --shadow-soft: 0 12px 28px rgba(0, 0, 0, 0.35);
-}
-
-[data-theme="light"] {
+:root {
   --bg: #f5f6fa;
   --bg-elevated: #ffffff;
-  --bg-inset: #10141b;
+  --bg-inset: #eef0f5;
   --border: #e2e5ec;
   --text: #1b2029;
   --text-muted: #5c6478;
@@ -261,10 +247,10 @@ a { color: inherit; }
 
 /* ---- mobile drawer ------------------------------------------------------*/
 .sidebar-backdrop { display: none; }
-.menu-toggle { display: none; }
 
 /* ---- main panel ---------------------------------------------------------*/
 .main-panel {
+  position: relative; /* anchors the pen overlay canvas */
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -283,6 +269,17 @@ a { color: inherit; }
 }
 .icon-btn:hover { color: var(--text); background: var(--bg); }
 .icon-btn.active { color: var(--accent); border-color: var(--accent); }
+.icon-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+/* Text zoom (+ / - buttons in the topic header and in the sidebar footer).
+   --text-zoom is set from app.js; only the reading content is scaled, so the
+   buttons themselves never move or resize. */
+.zoom-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.topic-card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.topic-card-heading,
+.visual-panel,
+.code-panel,
+.welcome > * { zoom: var(--text-zoom, 1); }
 
 .content-area {
   flex: 1;
@@ -377,7 +374,7 @@ a { color: inherit; }
   padding: 26px 22px 20px;
 }
 
-/* ---- code panel (deliberately dark in both themes, like a real editor) --*/
+/* ---- code panel (a light, recessed panel — same theme as the rest) -----*/
 .code-panel {
   background: var(--bg-inset);
   border: 1px solid var(--border);
@@ -390,11 +387,11 @@ a { color: inherit; }
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 .code-panel-lang {
   font-size: 12px;
-  color: #97a2b8;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 7px;
@@ -405,12 +402,12 @@ a { color: inherit; }
   gap: 7px;
   font-size: 12.5px;
   font-weight: 500;
-  color: #c8cede;
+  color: var(--text);
   padding: 6px 12px;
   border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border);
 }
-.copy-btn:hover { background: rgba(255, 255, 255, 0.06); }
+.copy-btn:hover { background: rgba(20, 24, 33, 0.05); }
 .copy-btn.copied { color: var(--success); border-color: var(--success); }
 
 .code-panel pre {
@@ -421,7 +418,7 @@ a { color: inherit; }
 .code-panel code {
   font-size: 13.5px;
   line-height: 1.65;
-  color: #d7dceb;
+  color: var(--text);
   white-space: pre;
 }
 
@@ -457,6 +454,345 @@ a { color: inherit; }
   .fade-in { animation: none; }
 }
 
+/* ---- topic visual: notes / reference content -----------------------------
+   Used by theory-only topics (e.g. Pandas "Introduction") whose visual panel
+   carries the actual lecture content instead of an animation. Deliberately
+   flat: no card backgrounds, no boxed borders, no pill chips — content sits
+   directly on the page background. Structure comes from spacing and type
+   only (heading weight/size, the accent-colored section number, hairline
+   rules under headings/table headers).
+
+   Colors use the theme tokens (--text / --text-muted / --border) like
+   everything else in the app — there's only one (light) theme now, so no
+   special-casing is needed here. --accent/--success/--danger stay in use
+   for icons and highlights. -------------------------------------------*/
+.visual-panel.intro-panel {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin-bottom: 0;
+}
+
+.intro-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.intro-hero-badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  color: var(--accent);
+}
+.intro-hero-title { margin: 0 0 3px; font-size: 19px; font-weight: 700; letter-spacing: -0.2px; color: var(--text); }
+.intro-hero-tag { margin: 0; font-size: 13px; color: var(--text-muted); }
+
+.intro-section { margin-bottom: 26px; }
+.intro-section:last-child { margin-bottom: 0; }
+.intro-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.intro-section-num { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--accent); flex-shrink: 0; }
+.intro-section-title { margin: 0; font-size: 15.5px; font-weight: 600; color: var(--text); }
+.intro-section-body { margin: 0; color: var(--text-muted); font-size: 14px; max-width: 62ch; }
+.intro-section-body + .intro-section-body { margin-top: 6px; }
+
+.intro-chip-grid { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; }
+.intro-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text);
+}
+.intro-chip i { color: var(--accent); font-size: 12px; width: 14px; text-align: center; }
+
+.intro-callout { display: flex; gap: 10px; margin-top: 12px; }
+.intro-callout i { color: var(--accent); font-size: 14px; margin-top: 2px; flex-shrink: 0; }
+.intro-callout-body p { margin: 0; font-size: 13.5px; color: var(--text-muted); }
+.intro-callout-body p + p { margin-top: 6px; }
+.intro-callout-body strong { color: var(--text); font-weight: 600; }
+
+.intro-proscons { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+.proscons-col h4 { margin: 0 0 10px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+.proscons-col.is-pro h4 { color: var(--success); }
+.proscons-col.is-con h4 { color: var(--danger); }
+.proscons-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.proscons-col li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--text-muted); }
+.proscons-col li i { font-size: 10px; margin-top: 4px; flex-shrink: 0; }
+.proscons-col.is-pro li i { color: var(--success); }
+.proscons-col.is-con li i { color: var(--danger); }
+
+/* Numbered advantage / disadvantage lists (keeps the notes' own 1-8 / 1-5
+   numbering instead of converting them into icon bullets). */
+.intro-numlist {
+  margin: 10px 0 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.intro-numlist li { padding-left: 2px; }
+.intro-numlist li::marker { font-family: "JetBrains Mono", monospace; font-size: 12.5px; }
+.intro-numlist.is-pro li::marker { color: var(--success); }
+.intro-numlist.is-con li::marker { color: var(--danger); }
+
+.intro-table-wrap { overflow-x: auto; margin-top: 10px; }
+.intro-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.intro-table th, .intro-table td { padding: 8px 14px 8px 0; text-align: left; white-space: nowrap; }
+.intro-table thead th { color: var(--text); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--accent); }
+.intro-table tbody tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+.intro-table tbody td { color: var(--text-muted); }
+.intro-table tbody td:first-child { color: var(--text); font-weight: 500; }
+
+/* Bullet lists, inline code, code examples and figures used by the topic
+   notes (e.g. Pandas > Merging). Everything lives inside .visual-panel, so the
+   text-zoom buttons scale it together with the rest of the notes. */
+.intro-bullets {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.intro-bullets li::marker { color: var(--accent); }
+.intro-bullets code,
+.intro-section-body code,
+.intro-callout-body code,
+.intro-table code {
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.intro-code {
+  margin-top: 12px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.intro-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 6px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.intro-code-label { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; }
+.intro-code .copy-btn { padding: 4px 10px; font-size: 12px; }
+.intro-code pre { margin: 0; padding: 14px 16px 16px; overflow-x: auto; }
+.intro-code code { font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre; }
+
+/* Figures: the image sits in its own scrollable stage, so zooming one image
+   never changes the page, the text or any other image. The three buttons
+   (full view / zoom in / zoom out) sit OUTSIDE the image, in a column to its
+   right, vertically centred. */
+.intro-figure { display: flex; align-items: center; gap: 10px; margin: 14px 0 0; }
+.intro-figure-stage {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  line-height: 0;
+}
+.intro-figure-stage img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+/* A zoomed image scrolls inside a frame instead of pushing the page down. */
+.intro-figure.is-zoomed .intro-figure-stage { max-height: 80vh; }
+.intro-figure.is-zoomed .intro-figure-stage,
+.img-lightbox-stage.is-zoomed { cursor: grab; }
+.intro-figure-stage.is-dragging,
+.img-lightbox-stage.is-dragging { cursor: grabbing; }
+
+.intro-figure-tools {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.img-tool-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.img-tool-btn:hover { color: var(--accent); border-color: var(--accent); }
+.img-tool-btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+
+/* Shown only while the image file is missing, so the empty slot is obvious. */
+.intro-figure-missing {
+  display: none;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  min-height: 150px;
+  padding: 20px;
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  color: var(--text-faint);
+  font-size: 13px;
+  text-align: center;
+}
+.intro-figure-missing code { font-size: 12px; color: var(--text-muted); }
+.intro-figure.is-missing .intro-figure-stage,
+.intro-figure.is-missing .intro-figure-tools { display: none; }
+.intro-figure.is-missing .intro-figure-missing { display: flex; }
+
+/* Full-view overlay (opened by the expand button on an image). */
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  background: rgba(12, 16, 22, 0.94);
+}
+.img-lightbox.open { display: block; }
+.img-lightbox-bar {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+.img-lightbox-stage {
+  position: absolute;
+  inset: 0;
+  padding: 60px 24px 24px;
+  display: flex;
+  overflow: auto;
+}
+.img-lightbox-stage img {
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  flex: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  border-radius: 6px;
+  background: #fff;
+}
+body.lightbox-open { overflow: hidden; }
+
+
+/* ---- Tool dock: pen + text zoom, bottom-left, just outside the sidebar -----
+   Lives inside .main-panel, whose left edge IS the sidebar's right edge, so the
+   dock stays attached to the sidebar when it opens, collapses or slides.
+   The pen options are the very same kind of button (same size, border, radius
+   and shadow), stacked in one column above the pen button - no panel, no scroll. */
+.tool-dock {
+  position: absolute;
+  left: 12px;
+  bottom: 16px;
+  width: 40px;
+  z-index: 10; /* above the pen canvas, so the buttons keep working while drawing */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dock-buttons,
+.ink-bar { display: flex; flex-direction: column; gap: 6px; }
+
+.tool-dock .icon-btn,
+.ink-btn,
+.ink-swatch {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(20, 24, 33, 0.12);
+  cursor: pointer;
+}
+.tool-dock .icon-btn:hover,
+.ink-btn:hover,
+.ink-swatch:hover { color: var(--text); background: var(--bg-inset); }
+.tool-dock .icon-btn.active,
+.ink-btn.active,
+.ink-swatch.active { color: var(--accent); background: var(--bg-inset); border-color: var(--accent); }
+.tool-dock .icon-btn:disabled,
+.ink-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+.ink-swatch::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+/* ---- Pen overlay: write / draw on top of the page during class ----------
+   A transparent canvas sits over the scrolling content area, so the page looks
+   exactly the same underneath. In "pen" mode it catches the pointer; in
+   "pointer" mode it lets every click and scroll fall through to the page. */
+.ink-canvas {
+  position: absolute;
+  z-index: 5;
+  display: none;
+  pointer-events: none;
+  touch-action: none;
+}
+.ink-canvas.on { display: block; }
+.ink-canvas.draw { pointer-events: auto; cursor: crosshair; }
+
+.ink-bar { display: none; }
+.ink-bar.open { display: flex; animation: ink-bar-in 0.15s ease-out; }
+@keyframes ink-bar-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Very short screens: slightly smaller buttons so every option still fits. */
+@media (max-height: 560px) {
+  .tool-dock { width: 34px; bottom: 10px; }
+  .tool-dock .icon-btn,
+  .ink-btn,
+  .ink-swatch { width: 34px; height: 34px; }
+}
+
 /* ---- scrollbars (subtle, matches the console feel) ----------------------*/
 .library-nav::-webkit-scrollbar,
 .content-area::-webkit-scrollbar,
@@ -470,7 +806,6 @@ a { color: inherit; }
 
 /* ---- responsive: sidebar becomes an off-canvas drawer -------------------*/
 @media (max-width: 900px) {
-  .menu-toggle { display: flex; }
   .sidebar-toggle { display: none; }
 
   /* The desktop collapse-to-rail behavior is irrelevant once the sidebar is
@@ -506,5 +841,6 @@ a { color: inherit; }
 
   .content-area { padding: 24px 20px 50px; }
   .topic-card-head { flex-direction: column; }
-  .cover-btn { align-self: flex-start; }
+  .topic-card-actions { align-self: flex-start; }
+  .intro-proscons { grid-template-columns: 1fr; }
 }

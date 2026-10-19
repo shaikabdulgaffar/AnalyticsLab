@@ -21,11 +21,42 @@ const LIBRARY_META = [
     tagline: "The statistics engine behind hypothesis tests and business experiments" },
 ];
 
+/* ---- library scripts ------------------------------------------------------
+   The library files (numpy.js, pandas.js, matplotlib.js, seaborn.js,
+   scikitlearn.js, scipy.js) are loaded directly by <script> tags in
+   index.html, AFTER app.js. Each file just calls registerTopic({...}) once per
+   topic, with library set to the folder id used in LIBRARY_META above
+   (e.g. "scikit-learn" for scikitlearn.js). The app starts on DOMContentLoaded,
+   i.e. once every one of those scripts has run. */
+
 /* ---- persistent state (per teacher, per browser) ---------------------- */
 let coveredSet = new Set(safeParse(localStorage.getItem("analyticsLab.covered")) || []);
 let expandedLibs = new Set(LIBRARY_META.map(l => l.folder)); // all open by default
 let activeTopicId = null;
 let activeVisualCleanup = null; // teardown for the currently mounted topic.visual, if any
+
+/* Text zoom: one shared level for the whole app, remembered per browser. */
+const ZOOM_MIN = 0.8, ZOOM_MAX = 1.6, ZOOM_STEP = 0.1;
+let textZoom = clampZoom(parseFloat(localStorage.getItem("analyticsLab.textZoom")) || 1);
+
+function clampZoom(z) {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
+}
+
+function applyTextZoom() {
+  document.documentElement.style.setProperty("--text-zoom", String(textZoom));
+  // Both button pairs (topic header + sidebar footer) share this state.
+  document.querySelectorAll("[data-zoom]").forEach((b) => {
+    b.disabled = (b.dataset.zoom === "in" && textZoom >= ZOOM_MAX) ||
+                 (b.dataset.zoom === "out" && textZoom <= ZOOM_MIN);
+  });
+}
+
+function changeTextZoom(direction) {
+  textZoom = clampZoom(textZoom + (direction === "in" ? ZOOM_STEP : -ZOOM_STEP));
+  localStorage.setItem("analyticsLab.textZoom", String(textZoom));
+  applyTextZoom();
+}
 
 function safeParse(json) {
   try { return JSON.parse(json); } catch (e) { return null; }
@@ -37,21 +68,32 @@ function persistCovered() {
 
 /* ---- boot --------------------------------------------------------------*/
 function initApp() {
-  applyTheme(localStorage.getItem("analyticsLab.theme") || "dark");
   applySidebarCollapsed(localStorage.getItem("analyticsLab.sidebarCollapsed") === "true");
 
   renderSidebar();
   updateProgress();
   renderWelcome();
+  buildDock();
+  applyTextZoom();
+  initImageTools();
+  initInk();
+
+  // One delegated listener covers every [data-zoom] button, including the
+  // ones re-created each time a topic is opened.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-zoom]");
+    if (btn && !btn.disabled) changeTextZoom(btn.dataset.zoom);
+  });
+
+  // Copy buttons on code examples that sit inside a topic's notes panel.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-copy-code]");
+    if (!btn) return;
+    copyCode(btn.closest(".intro-code").querySelector("code").textContent, btn);
+  });
 
   document.getElementById("searchInput").addEventListener("input", (e) => {
     renderSidebar(e.target.value);
-  });
-
-  document.getElementById("themeToggle").addEventListener("click", () => {
-    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    applyTheme(next);
-    localStorage.setItem("analyticsLab.theme", next);
   });
 
   // Desktop: collapses the sidebar in place (lives inside the sidebar header).
@@ -61,10 +103,7 @@ function initApp() {
     localStorage.setItem("analyticsLab.sidebarCollapsed", String(next));
   });
 
-  // Mobile: opens/closes the off-canvas drawer.
-  document.getElementById("menuToggle").addEventListener("click", () => {
-    document.getElementById("appShell").classList.toggle("sidebar-open");
-  });
+  // Mobile: tapping the backdrop closes the off-canvas drawer.
   document.getElementById("sidebarBackdrop").addEventListener("click", () => {
     document.getElementById("appShell").classList.remove("sidebar-open");
   });
@@ -77,15 +116,6 @@ function closeMobileSidebar() {
 function applySidebarCollapsed(on) {
   document.getElementById("appShell").classList.toggle("sidebar-collapsed", on);
   document.getElementById("sidebarToggle").title = on ? "Expand sidebar" : "Collapse sidebar";
-}
-
-/* ---- theme -------------------------------------------------------------*/
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  const btn = document.getElementById("themeToggle");
-  btn.innerHTML = theme === "dark"
-    ? '<i class="fa-solid fa-sun"></i>'
-    : '<i class="fa-solid fa-moon"></i>';
 }
 
 /* ---- sidebar ------------------------------------------------------------
@@ -188,14 +218,17 @@ function selectTopic(topic) {
           <h1>${topic.title}</h1>
           <p class="topic-summary">${topic.summary}</p>
         </div>
-        <button class="cover-btn ${covered ? "is-covered" : ""}" id="coverBtn" type="button">
-          <i class="fa-solid ${covered ? "fa-circle-check" : "fa-circle"}"></i>
-          <span>${covered ? "Covered in class" : "Mark as covered"}</span>
-        </button>
+        <div class="topic-card-actions">
+          <button class="cover-btn ${covered ? "is-covered" : ""}" id="coverBtn" type="button">
+            <i class="fa-solid ${covered ? "fa-circle-check" : "fa-circle"}"></i>
+            <span>${covered ? "Covered in class" : "Mark as covered"}</span>
+          </button>
+        </div>
       </div>
 
       ${topic.visual ? `<div class="visual-panel" id="visualPanel"></div>` : ""}
 
+      ${topic.code ? `
       <div class="code-panel">
         <div class="code-panel-header">
           <span class="code-panel-lang"><i class="fa-brands fa-python"></i> Python</span>
@@ -212,11 +245,16 @@ function selectTopic(topic) {
         </a>
         <span class="hint">Copy the code, paste it into the compiler tab, and run it live in class.</span>
       </div>
+      ` : ""}
     </div>
   `;
 
-  document.getElementById("copyBtn").addEventListener("click", () => copyCode(topic.code));
+  const copyBtn = document.getElementById("copyBtn"); // absent for theory-only topics (no code)
+  if (copyBtn) copyBtn.addEventListener("click", () => copyCode(topic.code));
   document.getElementById("coverBtn").addEventListener("click", () => toggleCovered(topic));
+  applyTextZoom(); // the freshly rendered header buttons need their enabled/disabled state
+  updateInkUI();   // pen button state + this topic's saved strokes
+  redrawInk();
 
   // Visual topics: stop any previous animation's interval/listeners, then
   // mount this topic's animation into its own panel. topic.visual is a
@@ -233,9 +271,399 @@ function selectTopic(topic) {
   }
 }
 
+/* ---- image tools: per-image zoom + full view ----------------------------
+   Works on any <figure class="intro-figure"> (see the figure() helper in the
+   library files). Zoom only resizes THAT image inside its own scrollable
+   stage - the page, the text and other images are untouched. */
+const IMG_ZOOM_MIN = 1, IMG_ZOOM_MAX = 4, IMG_ZOOM_STEP = 0.25;
+let lightbox = null;
+let lightboxScale = 1;
+let lightboxBaseWidth = 0;
+let lightboxReturnFocus = null;
+let dragState = null;
+let justDragged = false;
+
+function setImageScale(fig, scale) {
+  scale = Math.min(IMG_ZOOM_MAX, Math.max(IMG_ZOOM_MIN, Math.round(scale * 100) / 100));
+  fig.dataset.scale = String(scale);
+  const img = fig.querySelector("img");
+  img.style.width = scale > 1 ? (scale * 100) + "%" : "";
+  img.style.maxWidth = scale > 1 ? "none" : "";
+  fig.classList.toggle("is-zoomed", scale > 1);
+  fig.querySelector('[data-img-action="in"]').disabled = scale >= IMG_ZOOM_MAX;
+  fig.querySelector('[data-img-action="out"]').disabled = scale <= IMG_ZOOM_MIN;
+}
+
+function buildLightbox() {
+  const el = document.createElement("div");
+  el.className = "img-lightbox";
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-modal", "true");
+  el.setAttribute("aria-label", "Image full view");
+  el.innerHTML = `
+    <div class="img-lightbox-bar">
+      <button class="img-tool-btn" type="button" data-lb="in" title="Zoom in image" aria-label="Zoom in image"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+      <button class="img-tool-btn" type="button" data-lb="out" title="Zoom out image" aria-label="Zoom out image"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+      <button class="img-tool-btn" type="button" data-lb="close" title="Close (Esc)" aria-label="Close full view"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="img-lightbox-stage"><img alt=""></div>`;
+  document.body.appendChild(el);
+  return el;
+}
+
+function applyLightboxScale() {
+  const img = lightbox.querySelector("img");
+  const stage = lightbox.querySelector(".img-lightbox-stage");
+  if (lightboxScale > 1) {
+    img.style.maxWidth = "none";
+    img.style.maxHeight = "none";
+    img.style.width = (lightboxBaseWidth * lightboxScale) + "px";
+  } else {
+    img.style.maxWidth = "";
+    img.style.maxHeight = "";
+    img.style.width = "";
+  }
+  stage.classList.toggle("is-zoomed", lightboxScale > 1);
+  lightbox.querySelector('[data-lb="in"]').disabled = lightboxScale >= IMG_ZOOM_MAX;
+  lightbox.querySelector('[data-lb="out"]').disabled = lightboxScale <= IMG_ZOOM_MIN;
+}
+
+function changeLightboxScale(delta) {
+  const img = lightbox.querySelector("img");
+  if (lightboxScale === 1) lightboxBaseWidth = img.getBoundingClientRect().width; // size when "fit to screen"
+  lightboxScale = Math.min(IMG_ZOOM_MAX, Math.max(IMG_ZOOM_MIN, Math.round((lightboxScale + delta) * 100) / 100));
+  applyLightboxScale();
+}
+
+function openLightbox(sourceImg) {
+  if (!lightbox) lightbox = buildLightbox();
+  const img = lightbox.querySelector("img");
+  lightboxScale = 1;
+  lightbox.querySelector(".img-lightbox-stage").scrollTo(0, 0);
+  img.src = sourceImg.currentSrc || sourceImg.src;
+  img.alt = sourceImg.alt;
+  applyLightboxScale();
+  lightboxReturnFocus = document.activeElement;
+  lightbox.classList.add("open");
+  document.body.classList.add("lightbox-open");
+  lightbox.querySelector('[data-lb="close"]').focus();
+}
+
+function closeLightbox() {
+  if (!lightbox || !lightbox.classList.contains("open")) return;
+  lightbox.classList.remove("open");
+  document.body.classList.remove("lightbox-open");
+  if (lightboxReturnFocus && lightboxReturnFocus.focus) lightboxReturnFocus.focus();
+}
+
+function initImageTools() {
+  document.addEventListener("click", (e) => {
+    // Buttons on a figure (full view / zoom in / zoom out)
+    const tool = e.target.closest("[data-img-action]");
+    if (tool && !tool.disabled) {
+      const fig = tool.closest(".intro-figure");
+      const action = tool.dataset.imgAction;
+      if (action === "full") openLightbox(fig.querySelector("img"));
+      else setImageScale(fig, parseFloat(fig.dataset.scale) + (action === "in" ? IMG_ZOOM_STEP : -IMG_ZOOM_STEP));
+      return;
+    }
+    // Buttons inside the full-view overlay
+    const lb = e.target.closest("[data-lb]");
+    if (lb && !lb.disabled) {
+      if (lb.dataset.lb === "close") closeLightbox();
+      else changeLightboxScale(lb.dataset.lb === "in" ? IMG_ZOOM_STEP : -IMG_ZOOM_STEP);
+      return;
+    }
+    // Click on the dark backdrop (not the image) closes the overlay
+    if (lightbox && lightbox.classList.contains("open") && !justDragged &&
+        (e.target === lightbox || e.target.classList.contains("img-lightbox-stage"))) {
+      closeLightbox();
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeLightbox();
+  });
+
+  // Drag-to-pan for a zoomed image (mouse; touch already scrolls natively).
+  document.addEventListener("pointerdown", (e) => {
+    const stage = e.target.closest(".intro-figure-stage, .img-lightbox-stage");
+    if (!stage || e.pointerType === "touch" || e.button !== 0) return;
+    if (stage.scrollWidth <= stage.clientWidth && stage.scrollHeight <= stage.clientHeight) return;
+    dragState = { stage, x: e.clientX, y: e.clientY, left: stage.scrollLeft, top: stage.scrollTop, moved: false };
+    e.preventDefault();
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!dragState) return;
+    const dx = e.clientX - dragState.x, dy = e.clientY - dragState.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) { dragState.moved = true; dragState.stage.classList.add("is-dragging"); }
+    dragState.stage.scrollLeft = dragState.left - dx;
+    dragState.stage.scrollTop = dragState.top - dy;
+  });
+  const endDrag = () => {
+    if (!dragState) return;
+    dragState.stage.classList.remove("is-dragging");
+    if (dragState.moved) { justDragged = true; setTimeout(() => { justDragged = false; }, 0); }
+    dragState = null;
+  };
+  document.addEventListener("pointerup", endDrag);
+  document.addEventListener("pointercancel", endDrag);
+}
+
+/* ---- tool dock: pen + text zoom ------------------------------------------
+   A small column of buttons at the bottom-left corner of the main panel, i.e.
+   directly outside the sidebar's edge. Because it lives INSIDE .main-panel it
+   moves with the sidebar when the sidebar opens, collapses or slides in. The
+   pen options (#inkBar) open vertically above the pen button. */
+function buildDock() {
+  const dock = document.createElement("div");
+  dock.className = "tool-dock";
+  dock.id = "toolDock";
+  dock.innerHTML = `
+    <div class="ink-bar" id="inkBar" role="toolbar" aria-label="Pen tools"></div>
+    <div class="dock-buttons" role="group" aria-label="Page tools">
+      <button class="icon-btn" type="button" data-ink-toggle title="Pen: write or draw on the screen" aria-label="Pen: write or draw on the screen" aria-pressed="false"><i class="fa-solid fa-pen"></i></button>
+      <button class="icon-btn" type="button" data-zoom="in" title="Zoom in text" aria-label="Zoom in text"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+      <button class="icon-btn" type="button" data-zoom="out" title="Zoom out text" aria-label="Zoom out text"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+    </div>`;
+  document.querySelector(".main-panel").appendChild(dock);
+}
+
+/* ---- pen overlay: write / draw on top of the page ------------------------
+   For classes on an interactive touch panel. The pen button (in the tool dock,
+   bottom-left) opens a vertical toolbar and a transparent canvas laid over
+   the content area, so the page underneath looks and behaves exactly the same:
+     - Pen mode:     finger / pen / mouse draws; the mouse wheel still scrolls.
+     - Pointer mode: the canvas lets clicks and scrolling through to the page.
+   Strokes are stored in content coordinates (they scroll with the page) and
+   are remembered per topic until "Clear". Closing the pen hides them; opening
+   it again brings them back. */
+const INK_COLORS = [
+  { name: "Black",     value: "#111827" },
+  { name: "Dark red",  value: "#B91C1C" },
+  { name: "Dark blue", value: "#1E40AF" },
+];
+const INK_WIDTH = 4;
+let inkOn = false;
+let inkMode = "draw"; // "draw" | "pointer"
+let inkColor = INK_COLORS[0].value;
+let inkCanvas = null, inkCtx = null, inkBar = null;
+let inkCurrent = null, inkPointerId = null, inkRedrawQueued = false;
+const inkStrokes = {};       // topicId -> [{ color, width, points: [[x, y], ...], done }]
+const inkClearedBackup = {}; // topicId -> strokes removed by "Clear" (so Undo can restore them)
+
+function inkKey() { return activeTopicId || "welcome"; }
+function inkList() { return inkStrokes[inkKey()] || (inkStrokes[inkKey()] = []); }
+
+function inkMid(a, b) { return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
+
+// Draws the k-th smoothed segment (k = 0 .. n-1) of a stroke.
+function inkSegment(ctx, p, k, sx, sy) {
+  const n = p.length;
+  const X = (q) => q[0] - sx, Y = (q) => q[1] - sy;
+  ctx.beginPath();
+  if (k === 0) {
+    const m = inkMid(p[0], p[1]);
+    ctx.moveTo(X(p[0]), Y(p[0])); ctx.lineTo(X(m), Y(m));
+  } else if (k < n - 1) {
+    const a = inkMid(p[k - 1], p[k]), b = inkMid(p[k], p[k + 1]);
+    ctx.moveTo(X(a), Y(a)); ctx.quadraticCurveTo(X(p[k]), Y(p[k]), X(b), Y(b));
+  } else {
+    const a = inkMid(p[n - 2], p[n - 1]);
+    ctx.moveTo(X(a), Y(a)); ctx.lineTo(X(p[n - 1]), Y(p[n - 1]));
+  }
+  ctx.stroke();
+}
+
+function inkStyle(ctx, stroke) {
+  ctx.strokeStyle = stroke.color;
+  ctx.fillStyle = stroke.color;
+  ctx.lineWidth = stroke.width;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+}
+
+function inkDot(ctx, stroke, sx, sy) {
+  ctx.beginPath();
+  ctx.arc(stroke.points[0][0] - sx, stroke.points[0][1] - sy, stroke.width / 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function redrawInk() {
+  if (!inkCanvas) return;
+  const area = document.getElementById("contentArea");
+  const w = inkCanvas.clientWidth, h = inkCanvas.clientHeight;
+  inkCtx.clearRect(0, 0, w, h);
+  if (!inkOn) return;
+  const sx = area.scrollLeft, sy = area.scrollTop;
+  (inkStrokes[inkKey()] || []).forEach((s) => {
+    inkStyle(inkCtx, s);
+    const n = s.points.length;
+    if (n === 1) { inkDot(inkCtx, s, sx, sy); return; }
+    for (let k = 0; k < n; k++) inkSegment(inkCtx, s.points, k, sx, sy);
+  });
+}
+
+function queueInkRedraw() {
+  if (inkRedrawQueued) return;
+  inkRedrawQueued = true;
+  requestAnimationFrame(() => { inkRedrawQueued = false; redrawInk(); });
+}
+
+function syncInkCanvas() {
+  if (!inkCanvas) return;
+  const area = document.getElementById("contentArea");
+  const a = area.getBoundingClientRect(), p = inkCanvas.parentElement.getBoundingClientRect();
+  const w = area.clientWidth, h = area.clientHeight, dpr = window.devicePixelRatio || 1;
+  inkCanvas.style.left = (a.left - p.left + area.clientLeft) + "px";
+  inkCanvas.style.top = (a.top - p.top + area.clientTop) + "px";
+  inkCanvas.style.width = w + "px";
+  inkCanvas.style.height = h + "px";
+  inkCanvas.width = Math.max(1, Math.round(w * dpr));
+  inkCanvas.height = Math.max(1, Math.round(h * dpr));
+  inkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  redrawInk();
+}
+
+function inkPoint(e) {
+  const r = inkCanvas.getBoundingClientRect(), area = document.getElementById("contentArea");
+  return [e.clientX - r.left + area.scrollLeft, e.clientY - r.top + area.scrollTop];
+}
+
+function inkDown(e) {
+  if (inkMode !== "draw" || inkCurrent) return;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  e.preventDefault();
+  try { inkCanvas.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
+  inkPointerId = e.pointerId;
+  inkCurrent = { color: inkColor, width: INK_WIDTH, points: [inkPoint(e)], done: 0 };
+  inkList().push(inkCurrent);
+  inkClearedBackup[inkKey()] = null;
+  inkStyle(inkCtx, inkCurrent);
+  inkDot(inkCtx, inkCurrent, document.getElementById("contentArea").scrollLeft, document.getElementById("contentArea").scrollTop);
+  updateInkUI();
+}
+
+function inkMove(e) {
+  if (!inkCurrent || e.pointerId !== inkPointerId) return;
+  const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  (events.length ? events : [e]).forEach((ev) => inkCurrent.points.push(inkPoint(ev)));
+  const area = document.getElementById("contentArea"), p = inkCurrent.points;
+  inkStyle(inkCtx, inkCurrent);
+  for (let k = inkCurrent.done; k <= p.length - 2; k++) inkSegment(inkCtx, p, k, area.scrollLeft, area.scrollTop);
+  inkCurrent.done = Math.max(inkCurrent.done, p.length - 1);
+}
+
+function inkUp(e) {
+  if (!inkCurrent || e.pointerId !== inkPointerId) return;
+  const p = inkCurrent.points, area = document.getElementById("contentArea");
+  if (p.length > 1) { // the last half-segment is only drawn once the stroke ends
+    inkStyle(inkCtx, inkCurrent);
+    inkSegment(inkCtx, p, p.length - 1, area.scrollLeft, area.scrollTop);
+  }
+  inkCurrent = null;
+  inkPointerId = null;
+  updateInkUI();
+}
+
+function inkUndo() {
+  const key = inkKey(), list = inkList();
+  if (list.length) list.pop();
+  else if (inkClearedBackup[key]) { inkStrokes[key] = inkClearedBackup[key]; inkClearedBackup[key] = null; }
+  redrawInk();
+  updateInkUI();
+}
+
+function inkClear() {
+  const list = inkList();
+  if (!list.length) return;
+  inkClearedBackup[inkKey()] = list.slice();
+  inkStrokes[inkKey()] = [];
+  redrawInk();
+  updateInkUI();
+}
+
+function setInkMode(mode) { inkMode = mode; updateInkUI(); }
+function setInkColor(color) { inkColor = color; inkMode = "draw"; updateInkUI(); }
+
+function toggleInk(force) {
+  inkOn = typeof force === "boolean" ? force : !inkOn;
+  if (inkOn) {
+    if (!inkCanvas) buildInk();
+    inkMode = "draw";
+    syncInkCanvas();
+  }
+  updateInkUI();
+  redrawInk();
+}
+
+function updateInkUI() {
+  document.querySelectorAll("[data-ink-toggle]").forEach((b) => {
+    b.classList.toggle("active", inkOn);
+    b.setAttribute("aria-pressed", String(inkOn));
+  });
+  if (!inkCanvas) return;
+  inkCanvas.classList.toggle("on", inkOn);
+  inkCanvas.classList.toggle("draw", inkOn && inkMode === "draw");
+  inkBar.classList.toggle("open", inkOn);
+  inkBar.querySelectorAll("[data-ink-mode]").forEach((b) => b.classList.toggle("active", b.dataset.inkMode === inkMode));
+  inkBar.querySelectorAll("[data-ink-color]").forEach((b) => b.classList.toggle("active", b.dataset.inkColor === inkColor));
+  const list = inkStrokes[inkKey()] || [];
+  inkBar.querySelector('[data-ink-action="undo"]').disabled = !list.length && !inkClearedBackup[inkKey()];
+  inkBar.querySelector('[data-ink-action="clear"]').disabled = !list.length;
+}
+
+function buildInk() {
+  const panel = document.querySelector(".main-panel");
+  const area = document.getElementById("contentArea");
+
+  inkCanvas = document.createElement("canvas");
+  inkCanvas.className = "ink-canvas";
+  panel.appendChild(inkCanvas);
+  inkCtx = inkCanvas.getContext("2d");
+
+  inkBar = document.getElementById("inkBar"); // lives inside the dock, above the pen button
+  inkBar.innerHTML = `
+    <button class="ink-btn" type="button" data-ink-mode="draw" title="Pen: write or draw" aria-label="Pen: write or draw"><i class="fa-solid fa-pen"></i></button>
+    <button class="ink-btn" type="button" data-ink-mode="pointer" title="Pointer: use the page (click and scroll)" aria-label="Pointer: use the page"><i class="fa-solid fa-arrow-pointer"></i></button>
+    ${INK_COLORS.map((c) => `<button class="ink-swatch" type="button" data-ink-color="${c.value}" style="--c:${c.value}" title="${c.name} pen" aria-label="${c.name} pen"></button>`).join("")}
+    <button class="ink-btn" type="button" data-ink-action="undo" title="Undo" aria-label="Undo"><i class="fa-solid fa-rotate-left"></i></button>
+    <button class="ink-btn" type="button" data-ink-action="clear" title="Clear all" aria-label="Clear all"><i class="fa-solid fa-trash-can"></i></button>
+    <button class="ink-btn" type="button" data-ink-action="close" title="Close pen" aria-label="Close pen"><i class="fa-solid fa-xmark"></i></button>`;
+
+
+  inkBar.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b || b.disabled) return;
+    if (b.dataset.inkMode) setInkMode(b.dataset.inkMode);
+    else if (b.dataset.inkColor) setInkColor(b.dataset.inkColor);
+    else if (b.dataset.inkAction === "undo") inkUndo();
+    else if (b.dataset.inkAction === "clear") inkClear();
+    else if (b.dataset.inkAction === "close") toggleInk(false);
+  });
+
+  // Drawing
+  inkCanvas.addEventListener("pointerdown", inkDown);
+  inkCanvas.addEventListener("pointermove", inkMove);
+  inkCanvas.addEventListener("pointerup", inkUp);
+  inkCanvas.addEventListener("pointercancel", inkUp);
+  // The mouse wheel keeps scrolling the page while the pen is active.
+  inkCanvas.addEventListener("wheel", (e) => area.scrollBy(e.deltaX, e.deltaY), { passive: true });
+
+  // Keep the canvas matched to the content area, and strokes glued to the content.
+  area.addEventListener("scroll", queueInkRedraw, { passive: true });
+  window.addEventListener("resize", syncInkCanvas);
+  if (window.ResizeObserver) new ResizeObserver(syncInkCanvas).observe(area);
+}
+
+function initInk() {
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-ink-toggle]")) toggleInk();
+  });
+}
+
 /* ---- copy to clipboard (with fallback for non-secure / file:// contexts) */
-function copyCode(code) {
-  const btn = document.getElementById("copyBtn");
+function copyCode(code, btn = document.getElementById("copyBtn")) {
   const showCopied = () => {
     btn.classList.add("copied");
     btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Copied!</span>';
@@ -289,4 +717,21 @@ function escapeHtml(str) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+/* ---- start-up: runs after all <script> tags in index.html have executed --*/
+function bootstrap() {
+  // Console hint if a library file is missing, empty, or uses a wrong library id.
+  LIBRARY_META.forEach((lib) => {
+    if (!window.TOPICS.some((t) => t.library === lib.folder)) {
+      console.warn("Analytics Lab: no topics registered for '" + lib.folder + "' - check its <script> tag in index.html");
+    }
+  });
+  initApp();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bootstrap);
+} else {
+  bootstrap();
 }
