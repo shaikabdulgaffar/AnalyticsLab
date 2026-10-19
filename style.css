@@ -87,8 +87,8 @@ a { color: inherit; }
   flex-shrink: 0;
 }
 .sidebar-toggle-icon {
-  width: 17px;
-  height: 17px;
+  display: block;
+  font-size: 14px;
 }
 
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -227,23 +227,44 @@ a { color: inherit; }
 }
 
 /* ---- desktop collapsed sidebar -------------------------------------------
-   Shrinks the sidebar down to a slim rail holding just the toggle button;
-   everything else fades out rather than reflowing awkwardly. */
+   The sidebar shrinks to a 56px rail by animating ONLY its width. Everything
+   inside keeps its full 300px layout and is simply clipped by the sidebar
+   (overflow: hidden) and faded - nothing re-wraps, jumps or pops in
+   mid-animation. The toggle button slides to the middle of the rail with a
+   transform, in step with the width, and its arrow flips direction. */
+.sidebar > .sidebar-header,
+.sidebar > .library-nav,
+.sidebar > .sidebar-footer { min-width: 300px; }
+.sidebar > .search-box { min-width: 268px; }
+
+.sidebar .brand,
+.sidebar .search-box,
+.sidebar .library-nav,
+.sidebar .sidebar-footer {
+  transition: opacity 0.18s ease 0.07s; /* fades in just after the width starts opening */
+}
+.sidebar-toggle { transition: transform 0.2s ease, color 0.15s, background 0.15s; }
+.sidebar-toggle-icon { transition: transform 0.2s ease; }
+
 .app-shell.sidebar-collapsed .sidebar {
   width: 56px;
-}
-.app-shell.sidebar-collapsed .sidebar-header-row {
-  justify-content: center;
 }
 .app-shell.sidebar-collapsed .brand,
 .app-shell.sidebar-collapsed .search-box,
 .app-shell.sidebar-collapsed .library-nav,
 .app-shell.sidebar-collapsed .sidebar-footer {
-  display: none;
+  opacity: 0;
+  visibility: hidden;      /* also removes them from tab order / clicks */
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0s linear 0.12s;
 }
-.app-shell.sidebar-collapsed .sidebar-header {
-  padding: 22px 10px 14px;
-}
+/* 246px (open position) -> 11px (centred in the 56px rail) */
+.app-shell.sidebar-collapsed .sidebar-toggle { transform: translateX(-235px); }
+.app-shell.sidebar-collapsed .sidebar-toggle-icon { transform: rotate(180deg); }
+
+/* No animation while the saved state is applied at page load. */
+.app-shell.no-anim,
+.app-shell.no-anim * { transition: none !important; }
 
 /* ---- mobile drawer ------------------------------------------------------*/
 .sidebar-backdrop { display: none; }
@@ -275,7 +296,6 @@ a { color: inherit; }
    --text-zoom is set from app.js; only the reading content is scaled, so the
    buttons themselves never move or resize. */
 .zoom-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.topic-card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .topic-card-heading,
 .visual-panel,
 .code-panel,
@@ -284,7 +304,9 @@ a { color: inherit; }
 .content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 36px 40px 60px;
+  /* Side gutters (72px) leave room for the image buttons, which now sit
+     OUTSIDE the content column, in the margin to its right. */
+  padding: 36px 72px 60px;
 }
 
 /* ---- welcome state --------------------------------------------------- */
@@ -317,7 +339,7 @@ a { color: inherit; }
 .welcome-stats span { font-size: 12.5px; color: var(--text-faint); }
 
 /* ---- topic card ---------------------------------------------------------*/
-.topic-card { max-width: 760px; margin: 0 auto; }
+.topic-card { max-width: 920px; margin: 0 auto; }
 
 .topic-card-head {
   display: flex;
@@ -333,7 +355,7 @@ a { color: inherit; }
   font-weight: 600;
   letter-spacing: -0.2px;
 }
-.topic-summary { color: var(--text-muted); font-size: 14.5px; max-width: 58ch; margin: 0; }
+.topic-summary { color: var(--text-muted); font-size: 14.5px; max-width: 90ch; margin: 0; }
 
 .pill {
   display: inline-block;
@@ -505,7 +527,7 @@ a { color: inherit; }
 }
 .intro-section-num { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--accent); flex-shrink: 0; }
 .intro-section-title { margin: 0; font-size: 15.5px; font-weight: 600; color: var(--text); }
-.intro-section-body { margin: 0; color: var(--text-muted); font-size: 14px; max-width: 62ch; }
+.intro-section-body { margin: 0; color: var(--text-muted); font-size: 14px; max-width: 100ch; }
 .intro-section-body + .intro-section-body { margin-top: 6px; }
 
 .intro-chip-grid { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; }
@@ -603,10 +625,11 @@ a { color: inherit; }
 .intro-code code { font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre; }
 
 /* Figures: the image sits in its own scrollable stage, so zooming one image
-   never changes the page, the text or any other image. The three buttons
-   (full view / zoom in / zoom out) sit OUTSIDE the image, in a column to its
-   right, vertically centred. */
-.intro-figure { display: flex; align-items: center; gap: 10px; margin: 14px 0 0; }
+   never changes the page, the text or any other image. The image now uses the
+   FULL width of the content column; its three buttons (full view / zoom in /
+   zoom out) sit OUTSIDE the content container, in the right margin, vertically
+   centred on the image. */
+.intro-figure { position: relative; margin: 14px 0 0; }
 .intro-figure-stage {
   flex: 1;
   min-width: 0;
@@ -631,7 +654,10 @@ a { color: inherit; }
 .img-lightbox-stage.is-dragging { cursor: grabbing; }
 
 .intro-figure-tools {
-  flex: none;
+  position: absolute;
+  left: calc(100% + 12px);   /* just past the content column's right edge */
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -764,6 +790,37 @@ body.lightbox-open { overflow: hidden; }
   background: var(--c);
 }
 
+/* ---- Nav dock: Previous / Next, bottom-right (twin of the tool dock) ------
+   Same icon-only button look as the zoom buttons. */
+.nav-dock {
+  position: absolute;
+  right: 20px;
+  bottom: 16px;
+  z-index: 10; /* above the pen canvas, like the tool dock */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nav-dock-btn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(20, 24, 33, 0.12);
+  cursor: pointer;
+}
+.nav-dock-btn:hover { color: var(--text); background: var(--bg-inset); }
+.nav-dock-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+/* Mark as covered: turns green once covered. */
+.nav-dock-cover.is-covered { color: var(--success); border-color: var(--success); }
+
 /* ---- Pen overlay: write / draw on top of the page during class ----------
    A transparent canvas sits over the scrolling content area, so the page looks
    exactly the same underneath. In "pen" mode it catches the pointer; in
@@ -788,6 +845,8 @@ body.lightbox-open { overflow: hidden; }
 /* Very short screens: slightly smaller buttons so every option still fits. */
 @media (max-height: 560px) {
   .tool-dock { width: 34px; bottom: 10px; }
+  .nav-dock { bottom: 10px; }
+  .nav-dock-btn { width: 34px; height: 34px; }
   .tool-dock .icon-btn,
   .ink-btn,
   .ink-swatch { width: 34px; height: 34px; }
@@ -820,6 +879,14 @@ body.lightbox-open { overflow: hidden; }
   }
   .app-shell.sidebar-collapsed .library-nav { display: block; }
   .app-shell.sidebar-collapsed .sidebar-header { padding: 22px 20px 14px; }
+  .app-shell.sidebar-collapsed .brand,
+  .app-shell.sidebar-collapsed .search-box,
+  .app-shell.sidebar-collapsed .library-nav,
+  .app-shell.sidebar-collapsed .sidebar-footer {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
 
   .sidebar {
     position: fixed;
@@ -840,7 +907,13 @@ body.lightbox-open { overflow: hidden; }
   .app-shell.sidebar-open .sidebar-backdrop { display: block; }
 
   .content-area { padding: 24px 20px 50px; }
+  .intro-figure-tools {
+    position: static;
+    transform: none;
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
   .topic-card-head { flex-direction: column; }
-  .topic-card-actions { align-self: flex-start; }
   .intro-proscons { grid-template-columns: 1fr; }
 }

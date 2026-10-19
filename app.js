@@ -37,7 +37,8 @@ let activeVisualCleanup = null; // teardown for the currently mounted topic.visu
 
 /* Text zoom: one shared level for the whole app, remembered per browser. */
 const ZOOM_MIN = 0.8, ZOOM_MAX = 1.6, ZOOM_STEP = 0.1;
-let textZoom = clampZoom(parseFloat(localStorage.getItem("analyticsLab.textZoom")) || 1);
+const DEFAULT_ZOOM = 1.2; // larger reading size by default; teachers can still zoom with the dock buttons
+let textZoom = clampZoom(parseFloat(localStorage.getItem("analyticsLab.textZoom")) || DEFAULT_ZOOM);
 
 function clampZoom(z) {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
@@ -68,7 +69,12 @@ function persistCovered() {
 
 /* ---- boot --------------------------------------------------------------*/
 function initApp() {
+  // Apply the saved sidebar state instantly (no slide on page load), then
+  // switch transitions back on after the first frames have been painted.
+  const shell = document.getElementById("appShell");
+  shell.classList.add("no-anim");
   applySidebarCollapsed(localStorage.getItem("analyticsLab.sidebarCollapsed") === "true");
+  requestAnimationFrame(() => requestAnimationFrame(() => shell.classList.remove("no-anim")));
 
   renderSidebar();
   updateProgress();
@@ -199,6 +205,57 @@ function renderWelcome() {
   `;
 }
 
+/* ---- previous / next ordering -------------------------------------------
+   Follows the sidebar exactly: libraries in LIBRARY_META order, topics inside
+   each library in the order they were registered. Next on a library's last
+   topic therefore continues into the next library's first topic. */
+function orderedTopics() {
+  return LIBRARY_META.flatMap((lib) => window.TOPICS.filter((t) => t.library === lib.folder));
+}
+
+/* Right-side dock (Previous / Next). Before any topic is open, Next starts at
+   the first topic. */
+function currentTopicIndex() {
+  return orderedTopics().findIndex((t) => t.library + "::" + t.id === activeTopicId);
+}
+
+function updateNavDock() {
+  const prev = document.getElementById("navPrev");
+  const next = document.getElementById("navNext");
+  if (!prev || !next) return;
+  const total = orderedTopics().length;
+  const i = currentTopicIndex();
+  prev.disabled = i <= 0;
+  next.disabled = total === 0 || i >= total - 1;
+
+  const cover = document.getElementById("navCover");
+  if (cover) {
+    const on = coveredSet.has(activeTopicId);
+    cover.disabled = i === -1;
+    cover.classList.toggle("is-covered", on);
+    cover.setAttribute("aria-pressed", String(on));
+    cover.title = cover.ariaLabel = on ? "Covered in class (tap to undo)" : "Mark as covered";
+    cover.querySelector("i").className = "fa-solid " + (on ? "fa-circle-check" : "fa-circle");
+  }
+}
+
+function stepTopic(delta) {
+  const order = orderedTopics();
+  const i = currentTopicIndex();
+  const target = i === -1 ? (delta > 0 ? order[0] : null) : order[i + delta];
+  goToTopic(target);
+}
+
+function goToTopic(topic) {
+  if (!topic) return;
+  expandedLibs.add(topic.library); // make sure the target is visible in the sidebar
+  renderSidebar(document.getElementById("searchInput").value);
+  selectTopic(topic);
+  document.getElementById("contentArea").scrollTop = 0;
+  const activeItem = document.querySelector(".topic-item.active");
+  if (activeItem) activeItem.scrollIntoView({ block: "nearest" });
+}
+
 /* ---- topic detail -------------------------------------------------------*/
 function selectTopic(topic) {
   activeTopicId = topic.library + "::" + topic.id;
@@ -208,7 +265,6 @@ function selectTopic(topic) {
   });
 
   const libMeta = LIBRARY_META.find((l) => l.folder === topic.library);
-  const covered = coveredSet.has(activeTopicId);
 
   document.getElementById("contentArea").innerHTML = `
     <div class="topic-card fade-in" style="--accent:${libMeta.color}">
@@ -217,12 +273,6 @@ function selectTopic(topic) {
           <span class="pill difficulty-${topic.difficulty.toLowerCase()}">${topic.difficulty}</span>
           <h1>${topic.title}</h1>
           <p class="topic-summary">${topic.summary}</p>
-        </div>
-        <div class="topic-card-actions">
-          <button class="cover-btn ${covered ? "is-covered" : ""}" id="coverBtn" type="button">
-            <i class="fa-solid ${covered ? "fa-circle-check" : "fa-circle"}"></i>
-            <span>${covered ? "Covered in class" : "Mark as covered"}</span>
-          </button>
         </div>
       </div>
 
@@ -246,13 +296,14 @@ function selectTopic(topic) {
         <span class="hint">Copy the code, paste it into the compiler tab, and run it live in class.</span>
       </div>
       ` : ""}
+
     </div>
   `;
 
   const copyBtn = document.getElementById("copyBtn"); // absent for theory-only topics (no code)
   if (copyBtn) copyBtn.addEventListener("click", () => copyCode(topic.code));
-  document.getElementById("coverBtn").addEventListener("click", () => toggleCovered(topic));
   applyTextZoom(); // the freshly rendered header buttons need their enabled/disabled state
+  updateNavDock(); // Previous / Next enabled state for this topic
   updateInkUI();   // pen button state + this topic's saved strokes
   redrawInk();
 
@@ -427,6 +478,24 @@ function buildDock() {
       <button class="icon-btn" type="button" data-zoom="out" title="Zoom out text" aria-label="Zoom out text"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
     </div>`;
   document.querySelector(".main-panel").appendChild(dock);
+
+  // Right-side twin of the zoom dock: Previous / Next topic.
+  const nav = document.createElement("div");
+  nav.className = "nav-dock";
+  nav.setAttribute("role", "group");
+  nav.setAttribute("aria-label", "Topic navigation");
+  nav.innerHTML = `
+    <button class="nav-dock-btn" type="button" id="navPrev" title="Previous topic" aria-label="Previous topic"><i class="fa-solid fa-arrow-left"></i></button>
+    <button class="nav-dock-btn nav-dock-cover" type="button" id="navCover" title="Mark as covered" aria-label="Mark as covered" aria-pressed="false"><i class="fa-solid fa-circle"></i></button>
+    <button class="nav-dock-btn" type="button" id="navNext" title="Next topic" aria-label="Next topic"><i class="fa-solid fa-arrow-right"></i></button>`;
+  document.querySelector(".main-panel").appendChild(nav);
+  document.getElementById("navPrev").addEventListener("click", () => stepTopic(-1));
+  document.getElementById("navNext").addEventListener("click", () => stepTopic(1));
+  document.getElementById("navCover").addEventListener("click", () => {
+    const t = orderedTopics()[currentTopicIndex()];
+    if (t) toggleCovered(t);
+  });
+  updateNavDock();
 }
 
 /* ---- pen overlay: write / draw on top of the page ------------------------
@@ -701,7 +770,8 @@ function toggleCovered(topic) {
   persistCovered();
   updateProgress();
   renderSidebar(document.getElementById("searchInput").value);
-  selectTopic(topic);
+
+  updateNavDock(); // refresh the dock's mark-as-covered icon
 }
 
 function updateProgress() {
